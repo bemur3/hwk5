@@ -143,13 +143,19 @@ summary(dd_model)
 
 # Question 7 (Using fixest package)
 
-install.packages("fixest")
 library(fixest)
-library(broom)
 
-fe.model <- feols(uninsured_rate ~ treat | State + year, data = dd_data)
-fe.model.tidy <- tidy(fe.model, conf.int = TRUE)
-summmary(fe.model.tidy)
+# Add the interaction term
+dd_data <- dd_data %>%
+  mutate(treat_post = treat * post)
 
+# Estimate fixed effects DiD model using only the interaction term
+fe.model <- feols(
+  uninsured_rate ~ treat_post | State + year,
+  data = dd_data,
+  cluster = ~State
+)
+
+summary(fe.model)
 
 
