@@ -268,3 +268,7 @@ plot_all <- coefplot(
 )
 
 print(plot_all)
+
+rm(list=c(""))
+   
+save.image("submission1/Hwk5_workspace.RData")
