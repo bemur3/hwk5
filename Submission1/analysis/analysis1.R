@@ -50,37 +50,106 @@ ggplot(medicaid_trend, aes(x = year, y = share_medicaid)) +
 
 # Question 4
 
-# Step 1–2: Filter and label states
-final.data.q4 <- final.data %>%
-  filter(
-    is.na(expand_year) | expand_year <= 2014  # keep never-expanders and 2014 expanders only
-  ) %>%
+# Create clean expansion group labels from adoption year
+expanded <- final.data %>%
+  group_by(State) %>%
+  summarize(first_expand_year = unique(year(date_adopted))) %>%
   mutate(
-    group = case_when(
-      expand_ever & expand_year == 2014 ~ "Expanded in 2014",
-      !expand_ever                      ~ "Never Expanded"
+    expand_group = case_when(
+      is.na(first_expand_year)        ~ "Never Expanded",
+      first_expand_year == 2014       ~ "Expanded in 2014",
+      TRUE                            ~ NA_character_  # Drop others
     )
-  )
+  ) %>%
+  filter(!is.na(expand_group))  # Drop states that expanded after 2014
 
-# Step 3–4: Group and summarize
-uninsured_trend <- final.data.q4 %>%
-  group_by(year, group) %>%
-  summarise(
+# Join expansion labels back into full dataset
+final.data.exp <- final.data %>%
+  inner_join(expanded, by = "State")
+
+# Calculate uninsured share by group and year
+uninsured.share <- final.data.exp %>%
+  group_by(year, expand_group) %>%
+  summarize(
     total_uninsured = sum(uninsured, na.rm = TRUE),
-    total_adults    = sum(adult_pop, na.rm = TRUE),
-    share_uninsured = total_uninsured / total_adults,
+    total_adult_pop = sum(adult_pop, na.rm = TRUE),
+    share_uninsured = total_uninsured / total_adult_pop,
     .groups = "drop"
   )
 
-# Step 5: Plot
-ggplot(uninsured_trend, aes(x = year, y = share_uninsured, color = group)) +
+# Plot
+ggplot(uninsured.share, aes(x = year, y = share_uninsured, color = expand_group)) +
   geom_line(size = 1.2) +
-  geom_point(size = 2) +
+  geom_point() +
   scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
   labs(
-    title = "Uninsured Rate Over Time by Medicaid Expansion Status (2014)",
+    title = "Uninsured Rate by Medicaid Expansion Status (2012–2019)",
     x = "Year",
     y = "Share Uninsured",
-    color = "State Group"
+    color = "Expansion Status"
   ) +
   theme_minimal(base_size = 14)
+
+# Question 5
+
+# Filter for 2012 and 2015, calculate average uninsured percentage by expansion group
+dd_table <- final.data.exp %>%
+  filter(year %in% c(2012, 2015)) %>%
+  group_by(expand_group, year) %>%
+  summarise(
+    avg_uninsured_pct = sum(uninsured, na.rm = TRUE) / sum(adult_pop, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Pivot to wide format to get 2x2 structure
+dd_matrix <- dd_table %>%
+  pivot_wider(
+    names_from = year,
+    values_from = avg_uninsured_pct,
+    names_prefix = "year_"
+  ) %>%
+  mutate(
+    diff = year_2015 - year_2012
+  )
+
+# Format for readable output
+dd_matrix %>%
+  mutate(
+    year_2012 = scales::percent(year_2012, accuracy = 0.1),
+    year_2015 = scales::percent(year_2015, accuracy = 0.1),
+    diff = scales::percent(diff, accuracy = 0.1)
+  )
+
+# Question 6
+
+# Create treatment and post variables
+dd_data <- final.data.exp %>%
+  filter(expand_group %in% c("Expanded in 2014", "Never Expanded")) %>%
+  mutate(
+    treat = if_else(expand_group == "Expanded in 2014", 1, 0),
+    post  = if_else(year >= 2014, 1, 0)
+  ) %>%
+  group_by(State, year, treat, post) %>%
+  summarise(
+    uninsured_rate = sum(uninsured, na.rm = TRUE) / sum(adult_pop, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Run the DD regression
+dd_model <- lm(uninsured_rate ~ treat * post, data = dd_data)
+
+# View results
+summary(dd_model)
+
+# Question 7 (Using fixest package)
+
+install.packages("fixest")
+library(fixest)
+library(broom)
+
+fe.model <- feols(uninsured_rate ~ treat | State + year, data = dd_data)
+fe.model.tidy <- tidy(fe.model, conf.int = TRUE)
+summmary(fe.model.tidy)
+
+
+
