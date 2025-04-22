@@ -158,4 +158,113 @@ fe.model <- feols(
 
 summary(fe.model)
 
+# Question 8
 
+# Create the treatment indicator for post-expansion years
+reg.data.all <- final.data %>%
+  mutate(
+    perc_unins = uninsured / adult_pop,
+    treat = if_else(!is.na(expand_year) & year >= expand_year, 1, 0)
+  )
+
+# Estimate the two-way fixed effects model
+fe.model.all <- feols(
+  perc_unins ~ treat | State + year,
+  data = reg.data.all,
+  cluster = ~State
+)
+
+summary(fe.model.all)
+
+
+# Question 9
+
+# Filter to 2014 expanders and never-expanders
+event.data <- final.data %>%
+  filter(expand_year == 2014 | is.na(expand_year)) %>%
+  filter(year >= 2010, year <= 2019) %>%  # optional window
+  mutate(
+    uninsured_rate = uninsured / adult_pop,
+    event_time = year - expand_year
+  )
+
+# Clean up event time
+event.data <- event.data %>%
+  mutate(
+    event_time = case_when(
+      is.na(event_time) ~ -99,  # never-expanders placeholder
+      event_time <= -3  ~ -3,
+      event_time >= 4   ~ 4,
+      TRUE              ~ event_time
+    ),
+    event_time = factor(event_time),
+    event_time = fct_relevel(event_time, "-1")  # reference year = -1
+  )
+
+# Run event study regression
+event.model <- feols(
+  uninsured_rate ~ i(event_time, ref = "-1") | State + year,
+  data = event.data,
+  cluster = ~State
+)
+
+# Extract estimates and plot
+event.plot <- coefplot(event.model, 
+                       main = "Event Study: Impact of Medicaid Expansion on Uninsured Rate",
+                       xlab = "Years Since Expansion",
+                       ylab = "Change in Uninsured Rate",
+                       drop = "Intercept",
+                       ci.level = 0.95,
+                       keep = "event_time::")
+
+print(event.plot)
+
+# Question 10
+library(fixest)
+library(ggplot2)
+library(forcats)
+
+# Step 1: Create event time for all states, including post-2014 expanders and never-expanders
+event_data_all <- final.data %>%
+  mutate(
+    uninsured_rate_all = uninsured / adult_pop,
+    expand_year_all = if_else(is.na(expand_year), 9999L, expand_year),  # placeholder for never-expanders
+    event_time_all = year - expand_year_all
+  )
+
+# Step 2: Bin extreme years and handle never-expanders
+event_data_all <- event_data_all %>%
+  mutate(
+    event_time_all = case_when(
+      expand_year_all == 9999 ~ NA_integer_,  # drop from estimation later
+      event_time_all <= -3    ~ -3,
+      event_time_all >= 4     ~ 4,
+      TRUE                    ~ event_time_all
+    ),
+    event_time_all = factor(event_time_all),
+    event_time_all = fct_relevel(event_time_all, "-1")  # year before expansion = reference
+  )
+
+# Step 3: Drop never-expanders for estimation (we focus on dynamics among treated states)
+reg_data_all <- event_data_all %>%
+  filter(!is.na(event_time_all))
+
+# Step 4: Estimate event study model
+event_model_all <- feols(
+  uninsured_rate_all ~ i(event_time_all, ref = "-1") | State + year,
+  data = reg_data_all,
+  cluster = ~State
+)
+
+# Step 5: Plot event study results
+plot_all <- coefplot(
+  event_model_all,
+  main = "Event Study: Medicaid Expansion (All States)",
+  xlab = "Years Since Expansion",
+  ylab = "Change in Uninsured Rate",
+  drop = "Intercept",
+  ci.level = 0.95,
+  keep = "event_time_all::"
+)
+
+print(plot_all)
