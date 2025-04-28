@@ -4,12 +4,15 @@ subtitle: "ECON 470, Spring 2025"
 author: "Ethan Murakami"
 format:
   pdf:
-    output-file: "murakami_e_hmwk5_s1"
-    output-ext:  "pdf"
+    output-file: "murakami_e_hmwk5_s2"
+    output-ext: "pdf"
+    pdf-engine: xelatex
+    tables: booktabs
     header-includes:
       - \usepackage{float}
       - \floatplacement{table}{H}
 ---
+
 
 ```{r}
 #| include: false
@@ -30,7 +33,7 @@ Here is a link to my repository: {https://github.com/bemur3/hwk5}
 #| eval: true
 
 
-load("/Users/ethanmurakami/Documents/GitHub/hwk5/Submission1/Hwk5_workspace.RData")
+load("/Users/ethanmurakami/Documents/GitHub/hwk5/submission2/Hwk5_workspace.RData")
 ```
 
 
@@ -43,7 +46,7 @@ load("/Users/ethanmurakami/Documents/GitHub/hwk5/Submission1/Hwk5_workspace.RDat
 #| echo: false
 
 
-print(direct_trent_plot)
+print(direct_trend_plot)
 
 ```
 
@@ -86,12 +89,12 @@ print(uninsured.share.plot)
 ```{r}
 #| echo: false
 
-dd_matrix %>%
-  mutate(
-    year_2012 = scales::percent(year_2012, accuracy = 0.1),
-    year_2015 = scales::percent(year_2015, accuracy = 0.1),
-    diff = scales::percent(diff, accuracy = 0.1)
-  )
+kable(dd_table_nice,
+      digits = 2,
+      booktabs = TRUE,
+      caption = "DD Table for Medicaid Expansion",
+      format = 'latex') %>%
+  kable_styling(full_width = FALSE)
 ```
 
 \newpage 
@@ -100,7 +103,11 @@ dd_matrix %>%
 
 ```{r}
 #| echo: false
-summary(dd_model)
+modelsummary(dd_est,
+             coef_rename = c("post" = "Post 2014", "treat" = "Expand", "post:treat" = "Post x Expand"),
+             gof_omit = 'DF|F|Lik|AIC|BIC|Adj',
+             title = "Standard DD Estimates for Medicaid Expansion")
+
 
 ```
 
@@ -111,7 +118,11 @@ summary(dd_model)
 ```{r}
 #| echo: false
 
-summary(fe.model)
+modelsummary(models_twfe,
+             coef_rename = c("post" = "Post 2014", "treat" = "Expand", "post:treat" = "Post x Expand"),
+             gof_omit = 'DF|F|Lik|AIC|BIC|Adj',
+             title = "DD Estimates: Standard vs TWFE")
+
 
 ```
 
@@ -122,7 +133,12 @@ summary(fe.model)
 ```{r}
 #| echo: false
 
-summary(fe.model.all)
+modelsummary(models_dynamic,
+             coef_rename = c("post" = "Post 2014", "treat" = "Expand",
+                             "post:treat" = "Post x Expand", "treat_dynamic" = "Post x Expand (Dynamic)"),
+             gof_omit = 'DF|F|Lik|AIC|BIC|Adj',
+             title = "DD Estimates: Including Staggered Expansions")
+
 
 
 ```
@@ -135,7 +151,10 @@ summary(fe.model.all)
 ```{r}
 #| echo: false
 
-print(event.plot)
+iplot(mod_twfe,
+      xlab = "Years Since Expansion",
+      main = "Event Study (Common Treatment Year)")
+
 
 ```
 
@@ -147,6 +166,10 @@ print(event.plot)
 ```{r}
 #| echo: false
 
-print(plot_all)
+iplot(mod_twfe2,
+      xlab = "Years Since Treatment",
+      main = "Event Study (Staggered Expansion Timing)") +
+  geom_hline(yintercept = 0, linetype = "dashed", color = "black") +  # Horizontal line at 0
+  geom_vline(xintercept = 0, linetype = "dashed", color = "red")       # Vertical line at event time 0
 
 ```
