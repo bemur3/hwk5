@@ -5,23 +5,30 @@ author: "Ethan Murakami"
 format:
   pdf:
     output-file: "murakami_e_hmwk5_s2"
-    output-ext: "pdf"
-    pdf-engine: xelatex
-    tables: booktabs
+    output-ext:  "pdf"
     header-includes:
       - \usepackage{float}
       - \floatplacement{table}{H}
 ---
 
 
+
 ```{r}
 #| include: false
 
+Sys.setenv(MODELSUMMARY_LATEX_ENGINE = "kableExtra")
+options(modelsummary_factory_default = "kableExtra")
+options(modelsummary_latex_engine = "kableExtra")
+options(modelsummary_html_engine = "kableExtra")
+options(knitr.kable.force_latex = TRUE)
+
+# Load packages
 if (!require("pacman")) install.packages("pacman")
 pacman::p_load(tidyverse, ggplot2, dplyr, lubridate, readr, readxl, hrbrthemes, fixest,
                scales, gganimate, gapminder, gifski, png, tufte, plotly, OECD,
                ggrepel, survey, foreign, devtools, pdftools, kableExtra, modelsummary,
-               kableExtra, broom, gridExtra)
+               broom, gridExtra)
+
 ```
 
 Here is a link to my repository: {https://github.com/bemur3/hwk5}
@@ -55,6 +62,7 @@ print(direct_trend_plot)
 
 ## 2. Discuss the reduction in direct purchase health insurance in later years. Can you list a couple of policies that might have affected the success of the direct purchase insurance market?
 
+### The decline in direct purchase health insurance in later years can largely be attributed to federal policy changes that weakened support for the Affordable Care Act (ACA) marketplace. Two major policies that likely contributed to this reduction were the elimination of funding for ACA outreach and enrollment assistance programs, such as navigator services, and the effective repeal of the individual mandate penalty starting in 2019, which reduced incentives for healthy individuals to purchase insurance on the exchanges. These actions decreased marketplace visibility and lowered enrollment among individuals who might have otherwise participated in the direct purchase market.
 
 
 \newpage 
@@ -103,11 +111,7 @@ kable(dd_table_nice,
 
 ```{r}
 #| echo: false
-modelsummary(dd_est,
-             coef_rename = c("post" = "Post 2014", "treat" = "Expand", "post:treat" = "Post x Expand"),
-             gof_omit = 'DF|F|Lik|AIC|BIC|Adj',
-             title = "Standard DD Estimates for Medicaid Expansion")
-
+summary(dd_model)
 
 ```
 
@@ -118,10 +122,7 @@ modelsummary(dd_est,
 ```{r}
 #| echo: false
 
-modelsummary(models_twfe,
-             coef_rename = c("post" = "Post 2014", "treat" = "Expand", "post:treat" = "Post x Expand"),
-             gof_omit = 'DF|F|Lik|AIC|BIC|Adj',
-             title = "DD Estimates: Standard vs TWFE")
+summary(fe.model)
 
 
 ```
@@ -133,12 +134,7 @@ modelsummary(models_twfe,
 ```{r}
 #| echo: false
 
-modelsummary(models_dynamic,
-             coef_rename = c("post" = "Post 2014", "treat" = "Expand",
-                             "post:treat" = "Post x Expand", "treat_dynamic" = "Post x Expand (Dynamic)"),
-             gof_omit = 'DF|F|Lik|AIC|BIC|Adj',
-             title = "DD Estimates: Including Staggered Expansions")
-
+summary(fe.model.all)
 
 
 ```
